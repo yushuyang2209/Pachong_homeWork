@@ -85,7 +85,7 @@ def getDatalist(baseurl):
                 # print(movieIntroduc)
                 oneData.append(movieIntroduc)
             else:
-                movieIntroduc = "123"
+                movieIntroduc = ""
                 # print(movieIntroduc)
                 oneData.append(movieIntroduc)
 
@@ -107,95 +107,98 @@ def getDatalist(baseurl):
             oneData.append(movieInfo)
             datalist.append(oneData)
 
-
-    print(datalist)
+    #print(datalist)
 
     # print(t_list)
 
     return datalist
 
+import xlwt
 
-import re
-# # 影片详情链接匹配规则
-# findlink = re.compile(r'<a href="(.*?)">')   #创建正则表达式对象，表示字符串匹配规则
-# # 影片图片的链接匹配规则
-# findImgSrc = re.compile(r'<img.*src="(.*?)"',re.S)  #re.S 让换行符包含在字符中
-# # 影片的片名
-# findTitle = re.compile(r'<span class="title">(.*?)</span>')
-# #影片评分
-# findRating = re.compile(r'<span class="rating_num" property="v:average">(.*)</span>')
-# #找到评价人数
-# findJudge = re.compile(r'<span>(\d*)人评价</span>')
-# #找到概况
-# findInq = re.compile(r'<span class="inq">(.*)</span>')
-# #找到影片的相关内容
-# findBd = re.compile(r'<p class="">(.*?)</p>',re.S)
-# def getData(baseurl):
-#     datalist = []  # 存放所有电影信息
-#     for i in range(0, 10):  # 调用获取页面信息的函数，循环10次
-#         url = baseurl + str(i * 25)
-#         html = getUrl_Html(url)  # 保存获取到的网页源码
-#         # print(html)
-#         # 2.逐一解析数据
-#         # datalist.append(html)
-#         soup = BeautifulSoup(html, "html.parser")
-#         for item in soup.find_all("div", class_="item"):
-#             # print(item)   #测试查看电影item全部信息
-#             data = []  # 保存一部电影的所有信息
-#             item = str(item)
-#
-#
-#             # 获取到影片详情的链接
-#             link = re.findall(findlink, item)[0]  # re库用来通过正则表达式查找指定的字符串
-#             data.append(link)  # 添加影片链接
-#             print(data)
-#             # 获取影片图片
-#             ImgSrc = re.findall(findImgSrc, item)[0]
-#             data.append(ImgSrc)  # 添加图片
-#             # 获取影片名称
-#             Titles = re.findall(findTitle, item)  # 片名可能只有一个中文名，没有外国名
-#             if (len(Titles) == 2):
-#                 ctitle = Titles[0]
-#                 data.append(ctitle)  # 添加中文名
-#                 otitle = Titles[1].replace("/", "")  # 去掉无关的符号"/"
-#                 data.append(otitle)  # 添加外国名
-#             else:
-#                 data.append(Titles[0])
-#                 data.append(' ')  # 外国名不存在时，留空
-#
-#             # 获取影片评分
-#             rating = re.findall(findRating, item)[0]
-#             data.append(rating)  # 添加评分
-#
-#             # 获取评价人数
-#             judgeNum = re.findall(findJudge, item)[0]
-#             data.append(judgeNum)  # 添加评价人数
-#
-#             # 获取电影概述
-#             inq = re.findall(findInq, item)
-#             if len(inq) != 0:
-#                 data.append(inq[0].replace("。", ""))  # 添加影片概述
-#             else:
-#                 data.append(' ')  # 影片概述留空
-#
-#             # 找到影片的相关内容,导演、主演、年份等
-#             bd = re.findall(findBd, item)[0]
-#             bd = re.sub('<br(\s+)?/>(\s+)?', " ", bd)  # 替换<br/>
-#             bd = re.sub('/', " ", bd)  # 替换 /
-#             data.append(bd.strip())  # 去掉前后的空格
-#
-#             datalist.append(data)  # 把处理好的一部电影信息放入datalist
-#     print(datalist)
-#     return datalist
 #3.保存解析数据到Excel
+def savedata2Excel(savepath,datalist):
+    print("saving...")
+    book = xlwt.Workbook(encoding='utft-8',style_compression=0)     #创建表对象
+    sheet = book.add_sheet("movieTop250")
+    #定义表头
+    col = ["电影详情链接","电影图片链接","电影中文名","电影外文名","电影简介","电影评分","参评人数","电影信息"]
+    for i in range(len(col)):
+        sheet.write(0,i,col[i])
+    for i in range(len(datalist)):
+        for j in range(len(col)):
+            sheet.write(i+1,j,datalist[i][j])
+    book.save(savepath)
 
 
+import sqlite3
 #4.保存源码数据到数据库sql
+def saveData2Sql(dbpath,datalist):
+    print("")
+    init_db(dbpath)
+    conn = sqlite3.connect(dbpath)
+    cursor = conn.cursor()
+
+    for data in datalist:
+        for i in range(len(data)):
+            if i == 5 or i ==6:
+                continue
+            else:
+                data[i] = '"'+ data[i] + '"'
+        # print(data)
+        # data = ','.join(data)
+        # print(data)
+        sql = """
+        insert into movie250 ( movie_link,pic_link,cname,ename,introduction,rated,judgeNum,movie_info
+        ) values (%s);                
+        """ %','.join(data)
+
+        cursor.execute(sql)
+        conn.commit()
+    cursor.close()
+    conn.close()
+
+
+
+
+def init_db(dbpath):
+    sql = """
+         create table movie250
+         (
+         id integer primary key autoincrement,
+         movie_link text,
+         pic_link text,
+         cname varchar,
+         ename varchar,
+         introduction text,
+         rated numeric,
+         judgeNum numeric,
+         movie_info text
+         );
+    """
+    conn = sqlite3.connect(dbpath)
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    conn.commit()
+    conn.close()
+
+
+
+
+
 
 
 if __name__ == '__main__':
     baseurl = "https://movie.douban.com/top250?start="
     # print(baseurl+str(2*25))
-    htmlInfo = getDatalist(baseurl)
-    # print(htmlInfo)
+    #1. 获取网页源码并解析数据
+    datalist = getDatalist(baseurl)
+
+    #2. 保存数据到Excel
+    # savepath = "豆瓣电影top250.xls"
+    # savedata2Excel(savepath,datalist)
+
+    #3. 保存数据到数据库sqlite
+    dbpath = "movie.db"
+    # init_db(dbpath)
+    saveData2Sql(dbpath,datalist)
     print("爬取完成")
